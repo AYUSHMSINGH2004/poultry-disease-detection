@@ -18,8 +18,11 @@ const PredictPage = () => {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
+
   const { toast } = useToast();
+
+  // ✅ GET API URL FROM ENV
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const handleImageSelect = (imageData) => {
     setUploadedImage(imageData);
@@ -36,8 +39,7 @@ const PredictPage = () => {
       const formData = new FormData();
       formData.append('image', uploadedImage.file);
 
-      // ✅ FIXED: using deployed backend URL from environment variable
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/analyze`, {
+      const response = await fetch(`${API_BASE_URL}/analyze`, {
         method: 'POST',
         body: formData,
       });
@@ -51,11 +53,11 @@ const PredictPage = () => {
       }
 
       if (!response.ok) {
-        throw new Error(data.message || `Server error: ${response.status} ${response.statusText}`);
+        throw new Error(data.message || `Server error`);
       }
-      
+
       if (!data.primary_diagnosis) {
-        throw new Error("Invalid response format from server. Missing primary_diagnosis.");
+        throw new Error("Invalid response format from server.");
       }
 
       setAnalysisResult(data);
@@ -65,21 +67,24 @@ const PredictPage = () => {
         title: "Analysis complete",
         description: "Disease detection completed successfully.",
       });
+
     } catch (err) {
       console.error('Analysis error:', err);
-      
-      let errorMessage = err.message || 'Failed to analyze image. Please check your server connection.';
-      if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-        errorMessage = 'Network error: Could not connect to the deployed server. Please try again.';
+
+      let errorMessage = err.message || 'Failed to analyze image.';
+
+      if (err.name === 'TypeError') {
+        errorMessage = `Cannot connect to backend: ${API_BASE_URL}`;
       }
 
       setError(errorMessage);
-      
+
       toast({
         title: "Analysis failed",
         description: errorMessage,
         variant: "destructive",
       });
+
     } finally {
       setLoading(false);
     }
@@ -101,39 +106,37 @@ const PredictPage = () => {
     <>
       <Helmet>
         <title>Predict - Poultry Disease Detection System</title>
-        <meta 
-          name="description" 
-          content="AI-powered poultry disease classification system using deep learning to detect healthy birds and common diseases." 
+        <meta
+          name="description"
+          content="AI-powered poultry disease classification system using deep learning."
         />
       </Helmet>
 
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 bg-size-200 animate-gradient-pulse py-16">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 py-16">
         <div className="container mx-auto px-4 max-w-6xl">
+
+          {/* HEADER */}
           <div className="mb-12 text-center">
-            <h1 className="text-4xl md:text-6xl font-black text-gray-900 mb-6 drop-shadow-sm">Disease Detection Analysis</h1>
+            <h1 className="text-4xl md:text-6xl font-black text-gray-900 mb-6">
+              Disease Detection Analysis
+            </h1>
             <p className="text-gray-600 max-w-2xl mx-auto text-xl font-medium">
-              Upload a clear image of the poultry to receive an instant AI-powered diagnostic assessment and actionable recommendations.
+              Upload poultry image for AI diagnosis
             </p>
           </div>
 
           <AnimatePresence mode="wait">
             {uploadView ? (
               <motion.div
-                key="upload-view"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.4 }}
+                key="upload"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 className="space-y-10"
               >
-                {error && !loading && (
-                  <ErrorAlert 
-                    message={error} 
-                    onDismiss={() => setError(null)} 
-                  />
-                )}
+                {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
 
-                <div className="bg-white rounded-[2.5rem] p-2 md:p-4 border border-gray-200 shadow-2xl">
+                <div className="bg-white rounded-3xl p-4 shadow-xl">
                   <ImageUpload
                     onImageSelect={handleImageSelect}
                     onAnalyze={handleAnalyze}
@@ -144,28 +147,49 @@ const PredictPage = () => {
                 </div>
 
                 {loading && (
-                  <div className="bg-white rounded-[2.5rem] p-12 border border-gray-200 shadow-xl flex justify-center">
+                  <div className="bg-white rounded-3xl p-12 shadow-xl flex justify-center">
                     <LoadingSpinner />
                   </div>
                 )}
+
               </motion.div>
             ) : (
               <motion.div
-                key="results-view"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.4 }}
-                className="flex flex-col gap-10"
+                key="results"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-10"
               >
                 <div className="flex justify-end">
                   <Button onClick={handleReset}>
-                    <RefreshCw className="w-5 h-5 mr-3" />
-                    Analyze Another Image
+                    <RefreshCw className="mr-2" />
+                    Analyze Another
                   </Button>
                 </div>
 
                 <PredictionResult analysisResult={analysisResult} />
+
+                <div className="flex gap-6">
+                  <ProbabilityDistributionChart
+                    distribution={analysisResult?.distribution}
+                  />
+
+                  <ResultsVisualsSection
+                    originalImageBase64={analysisResult?.original_image_base64}
+                    heatmapImageBase64={analysisResult?.heatmap_image_base64}
+                  />
+                </div>
+
+                {analysisResult?.report && (
+                  <div className="bg-gradient-to-r from-indigo-600 to-purple-700 text-white p-8 rounded-3xl">
+                    <h3 className="text-2xl font-bold mb-4">
+                      <Sparkles className="inline mr-2" />
+                      AI Diagnostic Report
+                    </h3>
+                    <MarkdownRenderer markdown={analysisResult.report} />
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
