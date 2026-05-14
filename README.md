@@ -65,6 +65,3 @@ The transition from a local prototype to a fully functional web application was 
 ## 👥 Contributors
 * **Ayush M Singh** (23BDS0033)
 * **Venkata Sriram Topalli** (23BCE0441)
-* **Ojas Arora** (23BDS0235)
-* **Kanhaiya** (23BDS0238)
-* **Bishal Kumar Mandal** (23BDS0332)
